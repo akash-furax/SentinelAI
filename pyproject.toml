@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sentinelai"
+version = "0.1.0"
+description = "AI-powered DevOps automation framework — autonomous incident response with pluggable providers"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+authors = [
+    { name = "Akash Dighe" },
+]
+keywords = ["devops", "ai", "incident-response", "automation", "claude", "gemini"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "anthropic>=0.40.0,<1.0.0",
+    "bubus>=0.1.0",
+    "click>=8.1.0,<9.0.0",
+    "pyyaml>=6.0.0,<7.0.0",
+    "rich>=13.0.0,<14.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "respx>=0.21.0",
+    "ruff>=0.7.0",
+    "pip-audit>=2.7.0",
+]
+
+[project.scripts]
+sentinelai = "sentinelai.cli.main:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sentinelai"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+ignore = ["N818", "SIM115"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["sentinelai"]
+omit = ["tests/*"]

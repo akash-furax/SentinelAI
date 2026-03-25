@@ -1,0 +1,26 @@
+[
+  {
+    "alert_id": "test-001",
+    "source": "test",
+    "service_name": "auth-service",
+    "summary": "Error rate spike: 500 errors increased 340% in last 5 minutes. Connection pool exhaustion detected.",
+    "raw_payload": {
+      "error_rate": 0.34,
+      "error_count": 847,
+      "latency_p99_ms": 12400,
+      "active_connections": 100,
+      "max_connections": 100
+    }
+  },
+  {
+    "alert_id": "test-002",
+    "source": "test",
+    "service_name": "payment-service",
+    "summary": "Latency p99 exceeded SLO: 4200ms (threshold: 2000ms). Upstream database responding slowly.",
+    "raw_payload": {
+      "latency_p99_ms": 4200,
+      "slo_threshold_ms": 2000,
+      "db_query_time_ms": 3800
+    }
+  }
+]
