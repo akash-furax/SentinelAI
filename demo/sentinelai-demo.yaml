@@ -1,0 +1,18 @@
+pipeline:
+  alert_source: sentinelai.plugins.sources.file_source
+  triage_engine: sentinelai.plugins.triage.claude
+  code_fixer: sentinelai.plugins.fixers.claude_fixer
+
+settings:
+  dedup_window_minutes: 5
+
+timeouts:
+  triage_timeout_seconds: 90
+
+retry:
+  max_retries: 2
+  backoff_base_seconds: 1.0
+  jitter: true
+
+rate_limits:
+  ai_calls_per_minute: 20

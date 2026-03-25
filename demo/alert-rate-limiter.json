@@ -1,0 +1,16 @@
+{
+    "alert_id": "PROD-2026-0325-002",
+    "source": "datadog",
+    "service_name": "api-gateway",
+    "summary": "Legitimate users blocked by rate limiter after 2h uptime. RateLimiter.is_allowed() returning false for all clients. Memory usage of rate_limiter module growing linearly. 156 false-positive 429 responses in last 10 minutes.",
+    "raw_payload": {
+        "false_positive_429s_10m": 156,
+        "affected_clients": 89,
+        "memory_growth_mb_per_hour": 12.4,
+        "uptime_hours": 2.3,
+        "error_message": "All clients rate-limited despite low actual request volume",
+        "stack_trace": "File 'src/rate_limiter.py', line 28, in is_allowed: return len(self._requests[client_id]) <= self.max_requests",
+        "last_restart": "2h15m ago",
+        "rate_limit_config": {"max_requests": 100, "window_seconds": 60}
+    }
+}

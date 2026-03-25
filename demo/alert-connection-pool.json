@@ -1,0 +1,22 @@
+{
+    "alert_id": "PROD-2026-0325-001",
+    "source": "gcp-monitoring",
+    "service_name": "auth-service",
+    "summary": "Error rate spike: 500 errors increased 340% on POST /api/v1/auth/login. ConnectionError: Connection pool exhausted: 10/10 connections in use. 847 errors in last 5 minutes. p99 latency: 12.4s. Started after traffic spike from marketing campaign launch.",
+    "raw_payload": {
+        "error_rate_percent": 34.0,
+        "error_count_5m": 847,
+        "latency_p99_ms": 12400,
+        "latency_p50_ms": 3200,
+        "active_connections": 10,
+        "max_connections": 10,
+        "affected_endpoints": [
+            "POST /api/v1/auth/login",
+            "POST /api/v1/auth/refresh"
+        ],
+        "error_message": "ConnectionError: Connection pool exhausted: 10/10 connections in use. Cannot acquire new connection.",
+        "stack_trace": "File 'src/auth_service.py', line 30, in acquire: raise ConnectionError(...)",
+        "recent_deploy": "v2.14.3 deployed 2 hours ago (no code changes to auth)",
+        "traffic_spike": "Marketing campaign 'Spring Sale' launched 45 min ago, 3x normal login traffic"
+    }
+}
