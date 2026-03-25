@@ -20,7 +20,6 @@ import hmac
 import json
 import logging
 import os
-import uuid
 from collections.abc import AsyncIterator
 
 from sentinelai.contracts.alert_source import AlertSource
@@ -103,19 +102,8 @@ class WebhookAlertSource(AlertSource):
                 self._send_response(writer, 400, "Expected JSON object")
                 return
 
-            required = ["service_name", "summary"]
-            missing = [f for f in required if f not in data]
-            if missing:
-                self._send_response(writer, 400, f"Missing required fields: {missing}")
-                return
-
-            alert = AlertDetected(
-                alert_id=data.get("alert_id", str(uuid.uuid4())),
-                source="webhook",
-                service_name=data["service_name"],
-                summary=data["summary"],
-                raw_payload=data.get("raw_payload", data),
-            )
+            # Auto-detect provider and normalize payload
+            alert = self._normalize_payload(data, headers)
 
             await self._queue.put(alert)
             self._send_response(writer, 202, json.dumps({"status": "accepted", "alert_id": alert.alert_id}))
@@ -131,6 +119,44 @@ class WebhookAlertSource(AlertSource):
                 await writer.wait_closed()
             except Exception:
                 pass
+
+    def _normalize_payload(self, data: dict, headers: dict[str, str]) -> AlertDetected:
+        """Auto-detect monitoring provider and normalize to AlertDetected.
+
+        Detection flow:
+            1. Check headers for provider signatures (Datadog, PagerDuty, GCP)
+            2. Check payload structure for known fields
+            3. Fall back to generic adapter (requires service_name + summary)
+        """
+        from sentinelai.plugins.sources.adapters.base import detect_provider
+        from sentinelai.plugins.sources.adapters.datadog import DatadogAdapter
+        from sentinelai.plugins.sources.adapters.gcp_monitoring import GCPMonitoringAdapter
+        from sentinelai.plugins.sources.adapters.generic import GenericAdapter
+        from sentinelai.plugins.sources.adapters.pagerduty import PagerDutyAdapter
+
+        provider = detect_provider(data, headers)
+
+        adapters = {
+            "datadog": DatadogAdapter(),
+            "pagerduty": PagerDutyAdapter(),
+            "gcp_monitoring": GCPMonitoringAdapter(),
+            "generic": GenericAdapter(),
+        }
+
+        adapter = adapters.get(provider, GenericAdapter())
+        alert = adapter.normalize(data, headers)
+
+        logger.info(
+            "Alert normalized",
+            extra={
+                "provider": provider,
+                "alert_id": alert.alert_id,
+                "service_name": alert.service_name,
+                "event": "webhook.normalized",
+            },
+        )
+
+        return alert
 
     def _send_response(self, writer: asyncio.StreamWriter, status: int, body: str) -> None:
         status_text = {

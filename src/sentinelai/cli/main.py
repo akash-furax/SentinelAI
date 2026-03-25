@@ -103,6 +103,7 @@ def cli() -> None:
 # Register subcommands from other modules
 from sentinelai.cli.deploy import deploy as deploy_cmd
 from sentinelai.cli.fix import fix as fix_cmd
+from sentinelai.cli.run import run as run_cmd
 from sentinelai.cli.scaffold import plugin as plugin_group
 from sentinelai.cli.timeline import costs as costs_cmd
 from sentinelai.cli.timeline import explain as explain_cmd
@@ -114,6 +115,7 @@ cli.add_command(costs_cmd)
 cli.add_command(plugin_group)
 cli.add_command(fix_cmd)
 cli.add_command(deploy_cmd)
+cli.add_command(run_cmd)
 
 
 def _load_ticket_system(config: SentinelConfig) -> TicketSystem | None:
