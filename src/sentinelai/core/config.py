@@ -42,6 +42,8 @@ class PipelineConfig:
     alert_source: str = ""
     triage_engine: str = ""
     ticket_system: str = ""  # Optional — if empty, results go to console only
+    code_fixer: str = ""  # Optional — Phase 2: AI code fix generation
+    pr_opener: str = ""  # Optional — Phase 2: PR creation
 
 
 @dataclass
@@ -84,6 +86,8 @@ class SentinelConfig:
                 alert_source=pipeline_raw.get("alert_source", ""),
                 triage_engine=pipeline_raw.get("triage_engine", ""),
                 ticket_system=pipeline_raw.get("ticket_system", ""),
+                code_fixer=pipeline_raw.get("code_fixer", ""),
+                pr_opener=pipeline_raw.get("pr_opener", ""),
             )
 
         timeouts_raw = raw.get("timeouts", {})

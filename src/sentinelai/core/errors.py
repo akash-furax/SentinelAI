@@ -72,5 +72,21 @@ class PluginLoadError(SentinelAIError):
     """Plugin module not found or does not implement the required contract."""
 
 
+class CodeFixError(SentinelAIError):
+    """Code fix generation failed."""
+
+
+class CodeFixTimeoutError(CodeFixError):
+    """Code fix generation exceeded the configured timeout."""
+
+
+class CodeFixNoFilesError(CodeFixError):
+    """No fault-domain files identified — cannot generate a fix."""
+
+
+class PRCreationError(SentinelAIError):
+    """Pull request creation failed (branch, commit, or API error)."""
+
+
 class RateLimitExceeded(SentinelAIError):
     """Max tickets/hour or AI calls/minute threshold exceeded."""
