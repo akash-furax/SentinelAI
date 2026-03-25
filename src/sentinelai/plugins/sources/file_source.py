@@ -37,9 +37,7 @@ class FileAlertSource(AlertSource):
             raise AlertSourceError("FileAlertSource: no file path configured")
 
         if not self._file_path.exists():
-            raise AlertSourceError(
-                f"Alert file not found: {self._file_path}. Check the file path and try again."
-            )
+            raise AlertSourceError(f"Alert file not found: {self._file_path}. Check the file path and try again.")
 
         try:
             raw_text = self._file_path.read_text()

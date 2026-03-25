@@ -41,6 +41,7 @@ class RateLimitConfig:
 class PipelineConfig:
     alert_source: str = ""
     triage_engine: str = ""
+    ticket_system: str = ""  # Optional — if empty, results go to console only
 
 
 @dataclass
@@ -73,9 +74,7 @@ class SentinelConfig:
             raise ConfigValidationError(f"Invalid YAML in {config_path}: {e}") from e
 
         if not isinstance(raw, dict):
-            raise ConfigValidationError(
-                f"Config file {config_path} must be a YAML mapping, got {type(raw).__name__}"
-            )
+            raise ConfigValidationError(f"Config file {config_path} must be a YAML mapping, got {type(raw).__name__}")
 
         config = cls()
 
@@ -84,6 +83,7 @@ class SentinelConfig:
             config.pipeline = PipelineConfig(
                 alert_source=pipeline_raw.get("alert_source", ""),
                 triage_engine=pipeline_raw.get("triage_engine", ""),
+                ticket_system=pipeline_raw.get("ticket_system", ""),
             )
 
         timeouts_raw = raw.get("timeouts", {})
@@ -157,8 +157,14 @@ class SentinelConfig:
                     "Set it: export ANTHROPIC_API_KEY=sk-ant-..."
                 )
             elif not key.startswith("sk-ant-"):
+                issues.append("ANTHROPIC_API_KEY doesn't look like a valid Anthropic key (expected prefix: sk-ant-)")
+
+        if "gemini" in self.pipeline.triage_engine:
+            key = os.environ.get("GEMINI_API_KEY", "")
+            if not key:
                 issues.append(
-                    "ANTHROPIC_API_KEY doesn't look like a valid Anthropic key (expected prefix: sk-ant-)"
+                    "GEMINI_API_KEY is not set. Required for Gemini triage plugin. "
+                    "Set it: export GEMINI_API_KEY=your-key"
                 )
 
         return issues

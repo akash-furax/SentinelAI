@@ -78,6 +78,4 @@ def load_plugin(module_path: str, expected_base_class: type | None = None) -> An
     try:
         return plugin_class()
     except Exception as e:
-        raise PluginLoadError(
-            f"Failed to instantiate plugin {plugin_class.__name__} from {module_path}: {e}"
-        ) from e
+        raise PluginLoadError(f"Failed to instantiate plugin {plugin_class.__name__} from {module_path}: {e}") from e

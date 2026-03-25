@@ -5,6 +5,10 @@ Commands:
     sentinelai demo                    Run simulated incident with bundled fixture
     sentinelai doctor                  Validate setup (API keys, config, plugins)
     sentinelai validate-config         Check config without running
+    sentinelai timeline [alert_id]     Show incident timeline events
+    sentinelai explain <alert_id>      Show AI reasoning for a triage
+    sentinelai costs                   Show API cost summary
+    sentinelai plugin new              Generate plugin skeleton
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from sentinelai.contracts.alert_source import AlertSource
+from sentinelai.contracts.ticket_system import TicketSystem
 from sentinelai.contracts.triage_engine import TriageEngine
 from sentinelai.core.config import SentinelConfig
 from sentinelai.core.errors import AlertSourceError, ConfigValidationError, PluginLoadError
@@ -64,8 +69,7 @@ def _render_triage(result: TriageComplete) -> None:
     console.print()
     console.print(
         Panel(
-            f"[{severity_style}]{result.severity.value}[/{severity_style}] — "
-            f"Confidence: {result.confidence:.0%}",
+            f"[{severity_style}]{result.severity.value}[/{severity_style}] — Confidence: {result.confidence:.0%}",
             title=f"[bold]Triage Result: {result.alert_id}[/bold]",
             border_style=severity_style,
         )
@@ -96,6 +100,30 @@ def cli() -> None:
     """SentinelAI — AI-powered DevOps automation framework."""
 
 
+# Register subcommands from other modules
+from sentinelai.cli.scaffold import plugin as plugin_group
+from sentinelai.cli.timeline import costs as costs_cmd
+from sentinelai.cli.timeline import explain as explain_cmd
+from sentinelai.cli.timeline import timeline as timeline_cmd
+
+cli.add_command(timeline_cmd)
+cli.add_command(explain_cmd)
+cli.add_command(costs_cmd)
+cli.add_command(plugin_group)
+
+
+def _load_ticket_system(config: SentinelConfig) -> TicketSystem | None:
+    """Load the optional ticket system plugin. Returns None if not configured."""
+    if not config.pipeline.ticket_system:
+        return None
+    try:
+        return load_plugin(config.pipeline.ticket_system, TicketSystem)
+    except PluginLoadError as e:
+        console.print(f"[yellow]Ticket system plugin failed to load: {e}[/yellow]")
+        console.print("[yellow]Continuing without ticket creation.[/yellow]")
+        return None
+
+
 @cli.command()
 @click.option("--file", "file_path", required=True, type=click.Path(), help="Path to JSON alert file")
 @click.option("--config", "config_path", default=None, type=click.Path(), help="Path to sentinelai.yaml")
@@ -115,8 +143,10 @@ def triage(file_path: str, config_path: str | None) -> None:
 
     from sentinelai.plugins.sources.file_source import FileAlertSource
 
+    ticket_system = _load_ticket_system(config)
+
     source = FileAlertSource(file_path)
-    pipeline = Pipeline(config, source, triage_engine)
+    pipeline = Pipeline(config, source, triage_engine, ticket_system=ticket_system)
 
     try:
         results = asyncio.run(pipeline.run())
@@ -230,6 +260,18 @@ def doctor(config_path: str | None) -> None:
     except PluginLoadError as e:
         console.print(f"[red]\u2718[/red] Triage engine plugin: {e}")
         checks_failed += 1
+
+    # Check 5: Ticket system plugin (optional)
+    if config.pipeline.ticket_system:
+        try:
+            load_plugin(config.pipeline.ticket_system, TicketSystem)
+            console.print(f"[green]\u2714[/green] Ticket system plugin: {config.pipeline.ticket_system}")
+            checks_passed += 1
+        except PluginLoadError as e:
+            console.print(f"[red]\u2718[/red] Ticket system plugin: {e}")
+            checks_failed += 1
+    else:
+        console.print("[dim]- Ticket system: not configured (console output only)[/dim]")
 
     console.print()
     if checks_failed == 0:

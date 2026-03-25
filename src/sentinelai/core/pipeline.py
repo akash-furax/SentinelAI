@@ -38,6 +38,7 @@ from sentinelai.core.events import AlertDetected, Priority, TriageComplete
 
 if TYPE_CHECKING:
     from sentinelai.contracts.alert_source import AlertSource
+    from sentinelai.contracts.ticket_system import TicketSystem
     from sentinelai.contracts.triage_engine import TriageEngine
     from sentinelai.core.config import SentinelConfig
 
@@ -103,9 +104,7 @@ class DedupStore:
 
     def _evict_expired(self) -> None:
         now = datetime.now(UTC)
-        expired = [
-            k for k, (ts, _) in self._seen.items() if (now - ts).total_seconds() > self._window_seconds
-        ]
+        expired = [k for k, (ts, _) in self._seen.items() if (now - ts).total_seconds() > self._window_seconds]
         for k in expired:
             del self._seen[k]
 
@@ -118,11 +117,13 @@ class Pipeline:
         config: SentinelConfig,
         alert_source: AlertSource,
         triage_engine: TriageEngine,
+        ticket_system: TicketSystem | None = None,
         timeline_path: Path | None = None,
     ) -> None:
         self._config = config
         self._alert_source = alert_source
         self._triage_engine = triage_engine
+        self._ticket_system = ticket_system
         self._dedup = DedupStore(config.dedup_window_minutes)
         self._timeline_path = timeline_path or Path("incidents/timeline.jsonl")
         self._ai_calls_this_minute = 0
@@ -154,6 +155,30 @@ class Pipeline:
 
             self._log_timeline(triage_result, "triage.complete")
             results.append(triage_result)
+
+            # Create ticket if a ticket system is configured
+            if self._ticket_system is not None:
+                try:
+                    ticket = await self._ticket_system.create_ticket(triage_result)
+                    self._log_timeline_raw(
+                        {
+                            "event_type": "ticket.created",
+                            "timestamp": datetime.now(UTC).isoformat(),
+                            "trace_id": triage_result.trace_id,
+                            "alert_id": triage_result.alert_id,
+                            "ticket_id": ticket.ticket_id,
+                            "ticket_url": ticket.ticket_url,
+                        }
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Ticket creation failed",
+                        extra={
+                            "trace_id": triage_result.trace_id,
+                            "error": str(e),
+                            "event": "ticket.creation_failed",
+                        },
+                    )
 
         return results
 
@@ -259,5 +284,11 @@ class Pipeline:
             entry["severity"] = event.severity.value
             entry["confidence"] = event.confidence
 
+        with open(self._timeline_path, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+
+    def _log_timeline_raw(self, entry: dict) -> None:
+        """Append a pre-built entry to the timeline."""
+        self._timeline_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self._timeline_path, "a") as f:
             f.write(json.dumps(entry) + "\n")
