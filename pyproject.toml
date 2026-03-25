@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sentinelai"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI-powered DevOps automation framework — autonomous incident response with pluggable providers"
 readme = "README.md"
 license = "Apache-2.0"

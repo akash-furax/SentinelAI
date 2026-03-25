@@ -2,8 +2,9 @@
 
 **AI-powered DevOps automation framework** — autonomous incident response with pluggable providers.
 
-SentinelAI triages production alerts with AI, generates root cause analyses, and (in future phases) writes code fixes and opens pull requests — all autonomously. You bring your own AI keys (Claude, Gemini). The framework handles the rest.
+SentinelAI detects production incidents, triages them with AI, generates code fixes, opens pull requests, deploys, and validates — all autonomously. You bring your own AI keys (Claude, Gemini). The framework handles the rest.
 
+[![CI](https://github.com/akash-furax/SentinelAI/actions/workflows/ci.yml/badge.svg)](https://github.com/akash-furax/SentinelAI/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
@@ -103,21 +104,25 @@ sentinelai triage --file alerts.json
 ## How It Works
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│ Alert Source  │────▶│ AI Triage    │────▶│ Output       │
-│ (plugin)     │     │ (plugin)     │     │ (console/    │
-│              │     │              │     │  ticket)     │
-│ file_source  │     │ Claude       │     │              │
-│ webhook      │     │ Gemini       │     │ Jira         │
-│ your own...  │     │ your own...  │     │ GitHub Issues│
-└──────────────┘     └──────────────┘     └──────────────┘
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌──────────────┐
+│ Alert Source │───▶│ AI Triage   │───▶│ Code Fixer  │───▶│ PR Opener   │───▶│ Deploy +     │
+│             │    │             │    │             │    │             │    │ Validate     │
+│ Datadog     │    │ Claude      │    │ Claude      │    │ GitHub      │    │              │
+│ PagerDuty   │    │ Gemini      │    │ (any LLM)   │    │ (any VCS)   │    │ Any command  │
+│ GCP Monitor │    │ (any LLM)   │    │             │    │             │    │ Auto-rollback│
+│ Webhook     │    │             │    │             │    │             │    │              │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └──────────────┘
+                                                              │
+                                                       [Human Approval]
 ```
 
-1. **Alert sources** read alerts from files, webhooks, or any custom source
-2. **Deduplication** collapses duplicate alerts within a configurable time window
-3. **AI triage** classifies severity (P1–P4), generates root cause hypotheses, and produces confidence scores
-4. **Output** displays rich terminal results (Phase 1) or creates tickets (Phase 1.5+)
-5. **Incident timeline** records every event as an append-only JSONL audit log
+1. **Alert ingestion** — from Datadog, PagerDuty, GCP Monitoring, or any webhook (auto-detected)
+2. **Deduplication** — collapses duplicate alerts within a configurable time window
+3. **AI triage** — classifies severity (P1–P4), generates root cause hypothesis with confidence score
+4. **AI code fix** — reads your codebase, generates a targeted fix with tests
+5. **PR automation** — creates a branch, commits the fix, opens a PR for human review
+6. **Deploy + validate** — deploys the merged fix, runs validation, auto-rollbacks on failure
+7. **Audit trail** — every event logged to an append-only JSONL timeline
 
 All components are **pluggable** — implement an interface, drop it in your config, done.
 
@@ -127,10 +132,17 @@ All components are **pluggable** — implement an interface, drop it in your con
 
 | Command | Description |
 |---------|-------------|
-| `sentinelai demo` | Run a simulated incident triage with a bundled demo alert |
+| `sentinelai run` | Start the pipeline as a long-running service (webhook listener) |
 | `sentinelai triage --file <path>` | Triage alerts from a JSON file |
+| `sentinelai fix --file <alert> --repo <path>` | Triage → generate code fix → open PR |
+| `sentinelai deploy --commit <sha>` | Deploy a merged fix, validate, auto-rollback on failure |
+| `sentinelai demo` | Run a simulated incident triage with a bundled demo alert |
 | `sentinelai doctor` | Validate setup — config, API keys, plugins |
-| `sentinelai validate-config` | Check config validity without running the pipeline |
+| `sentinelai timeline [alert_id]` | Browse the incident timeline |
+| `sentinelai explain <alert_id>` | Show AI reasoning for a triage decision |
+| `sentinelai costs` | Show API cost summary |
+| `sentinelai plugin new` | Generate a new plugin skeleton |
+| `sentinelai validate-config` | Check config validity without running |
 
 ### Alert File Format
 
@@ -246,23 +258,49 @@ The module must contain exactly one public class that implements the contract AB
 
 | Plugin | Module Path | Description |
 |--------|------------|-------------|
-| File Source | `sentinelai.plugins.sources.file_source` | Reads alerts from JSON files. For local dev, testing, and demos. |
-
-**Coming in Phase 1.5:** Webhook source (HMAC-SHA256 authenticated HTTP endpoint)
+| File Source | `sentinelai.plugins.sources.file_source` | JSON file alerts — local dev, testing, demos |
+| Webhook | `sentinelai.plugins.sources.webhook` | HTTP server with HMAC-SHA256 auth. Auto-detects Datadog, PagerDuty, GCP Monitoring. |
 
 ### Triage Engines
 
 | Plugin | Module Path | Requires |
 |--------|------------|----------|
 | Claude | `sentinelai.plugins.triage.claude` | `ANTHROPIC_API_KEY` |
+| Gemini | `sentinelai.plugins.triage.gemini` | `GEMINI_API_KEY` + `pip install sentinelai[gemini]` |
 
-**Coming in Phase 1.5:** Gemini triage engine
+### Ticket Systems
+
+| Plugin | Module Path | Requires |
+|--------|------------|----------|
+| Jira | `sentinelai.plugins.tickets.jira` | `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY` |
+| GitHub Issues | `sentinelai.plugins.tickets.github_issues` | `GITHUB_TOKEN`, `GITHUB_REPO` |
+
+### Code Fixers
+
+| Plugin | Module Path | Requires |
+|--------|------------|----------|
+| Claude | `sentinelai.plugins.fixers.claude_fixer` | `ANTHROPIC_API_KEY` |
+
+### PR Openers
+
+| Plugin | Module Path | Requires |
+|--------|------------|----------|
+| GitHub | `sentinelai.plugins.pr_openers.github_pr` | `GITHUB_TOKEN`, `GITHUB_REPO` |
+
+### Deployers & Validators
+
+| Plugin | Module Path | Requires |
+|--------|------------|----------|
+| Command Deployer | `sentinelai.plugins.deployers.command_deployer` | `SENTINELAI_DEPLOY_COMMAND` |
+| Command Validator | `sentinelai.plugins.validators.command_validator` | `SENTINELAI_VALIDATE_COMMANDS` |
+
+See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for setup instructions for each monitoring tool.
 
 ---
 
 ## Error Handling
 
-SentinelAI uses a named error hierarchy — no catch-all handlers, no silent failures. Every error carries a `trace_id` and `timestamp` for debugging.
+Named error hierarchy — no catch-all handlers, no silent failures. Every error carries `trace_id` and `timestamp`.
 
 ```
 SentinelAIError
@@ -272,24 +310,33 @@ SentinelAIError
 │   ├── TriageTimeoutError
 │   ├── TriageRateLimitError
 │   └── TriageMalformedResponse
+├── CodeFixError
+│   ├── CodeFixTimeoutError
+│   └── CodeFixNoFilesError
+├── PRCreationError
+├── DeployError
+│   └── DeployRollbackError
+├── ValidationError
 ├── TicketCreationError
 ├── ConfigValidationError
 ├── PluginLoadError
 └── RateLimitExceeded
 ```
 
-When triage fails, the pipeline creates a fallback result with `severity=UNKNOWN` and flags it for manual review — alerts are never silently dropped.
+When triage fails, the pipeline creates a fallback result with `severity=UNKNOWN` — alerts are never silently dropped.
 
 ---
 
-## Roadmap
+## Status
+
+All phases are implemented and tested:
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **Phase 1** | Core framework + file source + Claude triage + CLI | **Current** |
-| **Phase 1.5** | Webhook source, Jira/GitHub Issues, Gemini, timeline, costs | Planned |
-| **Phase 2** | AI code fix generation + PR automation (the differentiator) | Planned |
-| **Phase 3** | Deployment automation + Playwright validation + auto-close | Planned |
+| **Phase 1** | Core framework + file source + Claude triage + CLI | Done |
+| **Phase 1.5** | Webhook + Datadog/PagerDuty/GCP adapters + Jira + GitHub Issues + Gemini + timeline/costs | Done |
+| **Phase 2** | AI code fix generation + PR automation | Done |
+| **Phase 3** | Deployment automation + validation + auto-rollback | Done |
 
 ---
 
