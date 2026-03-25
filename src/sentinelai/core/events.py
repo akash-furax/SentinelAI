@@ -1,12 +1,18 @@
 """Domain events for the SentinelAI pipeline.
 
-Event flow:
+Event flow (complete):
     AlertDetected ──► TriageComplete ──► TicketCreated
                                     └──► FixGenerated ──► PROpened
                                                            │
                                                     [Human Approval]
                                                            │
-                                                       PRMerged (Phase 3+)
+                                                       PRMerged ──► DeployStarted
+                                                                        │
+                                                                  ValidationResult
+                                                                        │
+                                                              ┌─────────┴─────────┐
+                                                              ▼                   ▼
+                                                         PASS: TicketClosed  FAIL: TicketReopened
 
 All events are treated as immutable after creation. Fields are not frozen
 because raw_payload is a dict (unhashable), but callers must not mutate events.
@@ -143,4 +149,71 @@ class PROpened:
     pr_number: int
     pr_url: str
     branch_name: str
+    trace_id: str = ""
+
+
+@dataclass
+class PRMerged:
+    """A human has approved and merged the AI-generated PR.
+
+    This event resumes the pipeline for deployment. It is triggered
+    externally (webhook or polling) — SentinelAI never self-merges.
+    """
+
+    alert_id: str
+    pr_number: int
+    merge_commit_sha: str
+    branch_name: str
+    trace_id: str = ""
+
+
+@dataclass
+class DeployStarted:
+    """Deployment of the merged fix has begun.
+
+    Fields:
+        deploy_id: Provider-specific deployment identifier.
+        environment: Target environment (e.g., "production", "staging").
+        strategy: Deployment strategy (e.g., "blue-green", "rolling", "direct").
+    """
+
+    alert_id: str
+    deploy_id: str
+    environment: str
+    strategy: str
+    trace_id: str = ""
+
+
+@dataclass
+class ValidationResult:
+    """Post-deployment validation has completed.
+
+    Fields:
+        passed: Whether all validation checks passed.
+        total_checks: Number of checks executed.
+        passed_checks: Number of checks that passed.
+        failed_checks: Details of any failed checks.
+        duration_seconds: How long validation took.
+    """
+
+    alert_id: str
+    passed: bool
+    total_checks: int
+    passed_checks: int
+    failed_checks: list[str] = field(default_factory=list)
+    duration_seconds: float = 0.0
+    trace_id: str = ""
+
+
+@dataclass
+class TicketClosed:
+    """The incident ticket has been auto-closed after successful validation.
+
+    This is the terminal event in the happy-path pipeline. The full loop
+    is complete: alert → triage → fix → PR → deploy → validate → close.
+    """
+
+    alert_id: str
+    ticket_id: str
+    resolution: str  # "auto-closed: validation passed" or similar
     trace_id: str = ""

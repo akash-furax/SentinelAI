@@ -88,5 +88,17 @@ class PRCreationError(SentinelAIError):
     """Pull request creation failed (branch, commit, or API error)."""
 
 
+class DeployError(SentinelAIError):
+    """Deployment failed (push, traffic shift, or health check)."""
+
+
+class DeployRollbackError(DeployError):
+    """Rollback of a failed deployment also failed — requires manual intervention."""
+
+
+class ValidationError(SentinelAIError):
+    """Validation infrastructure failed (not a test failure — that's ValidationResult.passed=False)."""
+
+
 class RateLimitExceeded(SentinelAIError):
     """Max tickets/hour or AI calls/minute threshold exceeded."""

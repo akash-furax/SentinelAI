@@ -44,6 +44,8 @@ class PipelineConfig:
     ticket_system: str = ""  # Optional — if empty, results go to console only
     code_fixer: str = ""  # Optional — Phase 2: AI code fix generation
     pr_opener: str = ""  # Optional — Phase 2: PR creation
+    deployer: str = ""  # Optional — Phase 3: deployment automation
+    validator: str = ""  # Optional — Phase 3: post-deploy validation
 
 
 @dataclass
@@ -88,6 +90,8 @@ class SentinelConfig:
                 ticket_system=pipeline_raw.get("ticket_system", ""),
                 code_fixer=pipeline_raw.get("code_fixer", ""),
                 pr_opener=pipeline_raw.get("pr_opener", ""),
+                deployer=pipeline_raw.get("deployer", ""),
+                validator=pipeline_raw.get("validator", ""),
             )
 
         timeouts_raw = raw.get("timeouts", {})
